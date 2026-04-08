@@ -1,7 +1,7 @@
 // config.js - HYDROFIT Configuration
 const CONFIG = {
   // REPLACE WITH YOUR DEPLOYED APPS SCRIPT URL
-  API_URL: 'https://script.google.com/macros/s/AKfycbyMdbBechZe2a6U6l0FVlqi9SExC_b0hMvicyR6uLfKlAFiA8j9gYOYLJQI-rKppUlikA/exec',
+  API_URL: 'https://script.google.com/macros/s/AKfycbwVoN-GZ8_ygsMJXsE8WwfmmPVVLn113tfjAHb_J9iPFZWS_oIvdaDvd27PIu8owfRsUw/exec',
   
   APP_VERSION: '2.0.0'
 };

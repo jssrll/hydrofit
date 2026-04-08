@@ -1,4 +1,4 @@
-// app.js - HYDROFIT Login/Registration
+// app.js - HYDROFIT with Google Sheets ONLY (No localStorage for credentials)
 
 let currentUser = null;
 
@@ -23,7 +23,7 @@ function showToast(msg, isError = false) {
   setTimeout(() => toast.remove(), 3000);
 }
 
-// ============ LOGIN FUNCTION ============
+// ============ LOGIN FUNCTION - Checks Google Sheets ============
 async function login(schoolId, password) {
   if (!schoolId || !password) {
     showToast('Please enter School ID and Password', true);
@@ -51,22 +51,20 @@ async function login(schoolId, password) {
         section: result.section
       };
       
-      sessionStorage.setItem('hydrofit_user', JSON.stringify(currentUser));
+      // Store only session info (not credentials for auto-login)
+      sessionStorage.setItem('hydrofit_logged_in', 'true');
+      sessionStorage.setItem('hydrofit_user_name', result.fullName);
+      sessionStorage.setItem('hydrofit_user_program', result.program);
+      sessionStorage.setItem('hydrofit_user_schoolId', result.schoolId);
+      sessionStorage.setItem('hydrofit_user_yearLevel', result.yearLevel);
+      sessionStorage.setItem('hydrofit_user_section', result.section);
       
       loginModal.style.display = 'none';
       showToast(`✅ Welcome ${result.fullName}!`);
       
       // Show dashboard
       document.getElementById('active-title').innerText = 'HYDROFIT Dashboard';
-      contentDiv.innerHTML = `
-        <div class="card">
-          <h3><i class="fas fa-user-circle"></i> Welcome, ${result.fullName}!</h3>
-          <p><strong>Program:</strong> ${result.program}</p>
-          <p><strong>School ID:</strong> ${result.schoolId}</p>
-          <p><strong>Section:</strong> ${result.yearLevel}-${result.section}</p>
-          <button class="btn" id="logoutBtnDashboard" onclick="logout()" style="margin-top: 20px;">Logout</button>
-        </div>
-      `;
+      renderDashboard();
       return true;
     } else {
       showToast(result?.message || 'Invalid School ID or Password', true);
@@ -83,7 +81,7 @@ async function login(schoolId, password) {
   }
 }
 
-// ============ REGISTER FUNCTION ============
+// ============ REGISTER FUNCTION - Sends to Google Sheets ============
 async function register(registrationData) {
   // Validation
   if (!registrationData.fullName) {
@@ -158,26 +156,37 @@ async function register(registrationData) {
 
 function logout() {
   currentUser = null;
-  sessionStorage.removeItem('hydrofit_user');
+  sessionStorage.clear();
   loginModal.style.display = 'flex';
   registerModal.style.display = 'none';
   showToast('Logged out successfully');
 }
 
+function renderDashboard() {
+  const fullName = sessionStorage.getItem('hydrofit_user_name') || 'User';
+  const program = sessionStorage.getItem('hydrofit_user_program') || 'N/A';
+  const schoolId = sessionStorage.getItem('hydrofit_user_schoolId') || 'N/A';
+  const yearLevel = sessionStorage.getItem('hydrofit_user_yearLevel') || 'N/A';
+  const section = sessionStorage.getItem('hydrofit_user_section') || 'N/A';
+  
+  contentDiv.innerHTML = `
+    <div class="card">
+      <h3><i class="fas fa-user-circle"></i> Welcome, ${fullName}!</h3>
+      <p><strong>Program:</strong> ${program}</p>
+      <p><strong>School ID:</strong> ${schoolId}</p>
+      <p><strong>Section:</strong> ${yearLevel}-${section}</p>
+      <button class="btn" id="logoutBtnDashboard" style="margin-top: 20px;">Logout</button>
+    </div>
+  `;
+  
+  document.getElementById('logoutBtnDashboard')?.addEventListener('click', logout);
+}
+
 function checkAuth() {
-  const savedUser = sessionStorage.getItem('hydrofit_user');
-  if (savedUser) {
-    currentUser = JSON.parse(savedUser);
+  const isLoggedIn = sessionStorage.getItem('hydrofit_logged_in');
+  if (isLoggedIn === 'true') {
     loginModal.style.display = 'none';
-    contentDiv.innerHTML = `
-      <div class="card">
-        <h3><i class="fas fa-user-circle"></i> Welcome back, ${currentUser.fullName}!</h3>
-        <p><strong>Program:</strong> ${currentUser.program}</p>
-        <p><strong>School ID:</strong> ${currentUser.schoolId}</p>
-        <p><strong>Section:</strong> ${currentUser.yearLevel}-${currentUser.section}</p>
-        <button class="btn" onclick="logout()" style="margin-top: 20px;">Logout</button>
-      </div>
-    `;
+    renderDashboard();
   } else {
     loginModal.style.display = 'flex';
   }

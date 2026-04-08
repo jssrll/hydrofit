@@ -1,4 +1,4 @@
-// sheets-integration.js - JLF Style (works with POST)
+// sheets-integration.js - Working with Google Sheets (NO localStorage)
 
 let apiUrl = null;
 
@@ -8,7 +8,7 @@ function initSheetDB(apiUrlParam) {
   return { isReady: true };
 }
 
-// Register user using POST (like JLF)
+// Register user - sends data to Google Sheets
 async function registerUser(userData) {
   try {
     const formData = new URLSearchParams();
@@ -20,7 +20,6 @@ async function registerUser(userData) {
     formData.append("yearLevel", userData.yearLevel);
     formData.append("section", userData.section);
     formData.append("password", userData.password);
-    formData.append("timestamp", new Date().toISOString());
     
     const response = await fetch(apiUrl, {
       method: "POST",
@@ -28,14 +27,15 @@ async function registerUser(userData) {
     });
     
     const result = await response.json();
+    console.log("Register API response:", result);
     return result;
   } catch (error) {
     console.error("Register error:", error);
-    return { success: false, message: "Connection error" };
+    return { success: false, message: "Connection error. Please check your internet." };
   }
 }
 
-// Login user using POST (like JLF)
+// Login user - checks credentials against Google Sheets
 async function loginUser(schoolId, password) {
   try {
     const formData = new URLSearchParams();
@@ -49,29 +49,11 @@ async function loginUser(schoolId, password) {
     });
     
     const result = await response.json();
+    console.log("Login API response:", result);
     return result;
   } catch (error) {
     console.error("Login error:", error);
-    return { success: false, message: "Connection error" };
-  }
-}
-
-// Get all users (for testing)
-async function getUsers() {
-  try {
-    const formData = new URLSearchParams();
-    formData.append("action", "getUsers");
-    
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      body: formData
-    });
-    
-    const result = await response.json();
-    return result;
-  } catch (error) {
-    console.error("Get users error:", error);
-    return [];
+    return { success: false, message: "Connection error. Please check your internet." };
   }
 }
 
@@ -87,7 +69,8 @@ async function testAPIConnection() {
     });
     
     if (response.ok) {
-      return { success: true, message: "API connected" };
+      const result = await response.json();
+      return { success: true, message: "API connected", userCount: result.length };
     }
     return { success: false, message: "API not reachable" };
   } catch (error) {
