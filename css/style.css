@@ -931,3 +931,82 @@ input:disabled {
   background: #f0f0f0;
   cursor: not-allowed;
 }
+
+/* Slideshow Wrapper with Overlay */
+.slideshow-wrapper {
+  position: relative;
+  margin-bottom: 28px;
+}
+
+.slideshow-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 15px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.school-badge {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  padding: 8px 20px;
+  border-radius: 50px;
+  pointer-events: auto;
+}
+
+.minsu-logo {
+  width: 45px;
+  height: 45px;
+  object-fit: contain;
+  border-radius: 50%;
+  background: white;
+  padding: 5px;
+}
+
+.school-text {
+  color: white;
+  line-height: 1.3;
+}
+
+.school-text strong {
+  font-size: 0.9rem;
+  display: block;
+}
+
+.school-text span {
+  font-size: 0.7rem;
+  opacity: 0.9;
+}
+
+/* Mobile responsive for overlay */
+@media (max-width: 768px) {
+  .slideshow-overlay {
+    padding: 10px 12px;
+  }
+  
+  .school-badge {
+    padding: 5px 12px;
+    gap: 8px;
+  }
+  
+  .minsu-logo {
+    width: 30px;
+    height: 30px;
+  }
+  
+  .school-text strong {
+    font-size: 0.7rem;
+  }
+  
+  .school-text span {
+    font-size: 0.55rem;
+  }
+}

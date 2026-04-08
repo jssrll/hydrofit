@@ -4,9 +4,8 @@
 let currentUser = null;
 let timerInterval = null;
 let slideInterval = null;
-let currentSlide = 0;
 
-// Default user data structure (no points system)
+// Default user data structure
 let userData = {
   assessments: [],
   attendance: [],
@@ -47,7 +46,6 @@ function playLoudBell() {
   if(bell) {
     bell.currentTime = 0;
     bell.play().catch(e=>console.log);
-    // Play multiple times for 3 seconds
     setTimeout(() => bell.pause(), 3000);
   }
 }
@@ -58,7 +56,7 @@ function saveUserData() {
   }
 }
 
-// ============ LOGIN / REGISTRATION ============
+// ============ LOGIN / REGISTRATION (Fixed - Works without external API) ============
 
 async function login(schoolId, password) {
   if (!schoolId || !password) {
@@ -73,46 +71,55 @@ async function login(schoolId, password) {
   inputs.forEach(input => input.disabled = true);
   btn.textContent = 'Logging in...';
   
-  // Use localStorage for demo
+  // Use localStorage (works offline, no connection issues)
   setTimeout(() => {
-    const users = JSON.parse(localStorage.getItem('hydrofit_accounts') || '[]');
-    const user = users.find(u => u.schoolId === schoolId && u.password === password);
-    
-    if (user) {
-      currentUser = {
-        schoolId: user.schoolId,
-        fullName: user.fullName,
-        program: user.program,
-        subject: user.subject,
-        yearLevel: user.yearLevel,
-        section: user.section
-      };
+    try {
+      const users = JSON.parse(localStorage.getItem('hydrofit_accounts') || '[]');
+      const user = users.find(u => u.schoolId === schoolId && u.password === password);
       
-      localStorage.setItem('hydrofit_current_user', JSON.stringify(currentUser));
-      
-      const stored = localStorage.getItem(`hydrofit_${currentUser.schoolId}`);
-      if (stored) {
-        userData = JSON.parse(stored);
+      if (user) {
+        currentUser = {
+          schoolId: user.schoolId,
+          fullName: user.fullName,
+          program: user.program,
+          subject: user.subject || 'Pathfit',
+          yearLevel: user.yearLevel,
+          section: user.section
+        };
+        
+        localStorage.setItem('hydrofit_current_user', JSON.stringify(currentUser));
+        
+        const stored = localStorage.getItem(`hydrofit_${currentUser.schoolId}`);
+        if (stored) {
+          userData = JSON.parse(stored);
+        } else {
+          userData = { assessments: [], attendance: [], goals: [] };
+        }
+        
+        loginModal.style.display = 'none';
+        showToast(`✅ Welcome ${user.fullName}!`);
+        switchTab('dashboard');
+        return true;
       } else {
-        userData = { assessments: [], attendance: [], goals: [] };
+        showToast('Invalid School ID or Password', true);
+        return false;
       }
-      
-      loginModal.style.display = 'none';
-      showToast(`✅ Welcome ${user.fullName}!`);
-      switchTab('dashboard');
-    } else {
-      showToast('Invalid School ID or Password', true);
+    } catch (error) {
+      console.error('Login error:', error);
+      showToast('Login error. Please try again.', true);
+      return false;
+    } finally {
+      btn.disabled = false;
+      inputs.forEach(input => input.disabled = false);
+      btn.textContent = 'Login';
     }
-    
-    btn.disabled = false;
-    inputs.forEach(input => input.disabled = false);
-    btn.textContent = 'Login';
   }, 500);
   
   return true;
 }
 
 async function register(registrationData) {
+  // Validation
   if (!registrationData.fullName) {
     showToast('Please enter your full name', true);
     return false;
@@ -149,47 +156,62 @@ async function register(registrationData) {
   inputs.forEach(input => input.disabled = true);
   btn.textContent = 'Registering...';
   
+  // Save to localStorage (works offline)
   setTimeout(() => {
-    const users = JSON.parse(localStorage.getItem('hydrofit_accounts') || '[]');
-    
-    if (users.some(u => u.schoolId === registrationData.schoolId)) {
-      showToast('School ID already exists', true);
+    try {
+      const users = JSON.parse(localStorage.getItem('hydrofit_accounts') || '[]');
+      
+      // Check if School ID already exists
+      if (users.some(u => u.schoolId === registrationData.schoolId)) {
+        showToast('School ID already exists', true);
+        btn.disabled = false;
+        inputs.forEach(input => input.disabled = false);
+        btn.textContent = 'Register';
+        return false;
+      }
+      
+      // Create section code (e.g., 1-F1)
+      const sectionCode = `${registrationData.yearLevel}-${registrationData.section}`;
+      
+      const newUser = {
+        schoolId: registrationData.schoolId,
+        password: registrationData.password,
+        fullName: registrationData.fullName,
+        program: registrationData.program,
+        subject: registrationData.subject || 'Pathfit',
+        yearLevel: registrationData.yearLevel,
+        section: registrationData.section,
+        sectionCode: sectionCode,
+        registeredAt: new Date().toISOString()
+      };
+      
+      users.push(newUser);
+      localStorage.setItem('hydrofit_accounts', JSON.stringify(users));
+      
+      showToast('✅ Registration successful! Please login.');
+      registerModal.style.display = 'none';
+      loginModal.style.display = 'flex';
+      
+      // Clear form
+      document.getElementById('regFullName').value = '';
+      document.getElementById('regSchoolId').value = '';
+      document.getElementById('regSubject').value = '';
+      document.getElementById('regProgram').value = '';
+      document.getElementById('regYearLevel').value = '';
+      document.getElementById('regSection').value = '';
+      document.getElementById('regPassword').value = '';
+      document.getElementById('regConfirmPassword').value = '';
+      
+      return true;
+    } catch (error) {
+      console.error('Registration error:', error);
+      showToast('Registration error. Please try again.', true);
+      return false;
+    } finally {
       btn.disabled = false;
       inputs.forEach(input => input.disabled = false);
       btn.textContent = 'Register';
-      return;
     }
-    
-    const newUser = {
-      schoolId: registrationData.schoolId,
-      password: registrationData.password,
-      fullName: registrationData.fullName,
-      program: registrationData.program,
-      subject: registrationData.subject || 'Pathfit',
-      yearLevel: registrationData.yearLevel,
-      section: registrationData.section,
-      registeredAt: new Date().toISOString()
-    };
-    
-    users.push(newUser);
-    localStorage.setItem('hydrofit_accounts', JSON.stringify(users));
-    
-    showToast('✅ Registration successful! Please login.');
-    registerModal.style.display = 'none';
-    loginModal.style.display = 'flex';
-    
-    document.getElementById('regFullName').value = '';
-    document.getElementById('regSchoolId').value = '';
-    document.getElementById('regSubject').value = '';
-    document.getElementById('regProgram').value = '';
-    document.getElementById('regYearLevel').value = '';
-    document.getElementById('regSection').value = '';
-    document.getElementById('regPassword').value = '';
-    document.getElementById('regConfirmPassword').value = '';
-    
-    btn.disabled = false;
-    inputs.forEach(input => input.disabled = false);
-    btn.textContent = 'Register';
   }, 500);
   
   return true;
@@ -229,7 +251,8 @@ function showQRCode() {
   const qrData = JSON.stringify({
     id: currentUser.schoolId,
     name: currentUser.fullName,
-    program: currentUser.program
+    program: currentUser.program,
+    section: currentUser.section
   });
   
   new QRCode(qrContainer, {
@@ -241,13 +264,14 @@ function showQRCode() {
   document.getElementById('qrUserInfo').innerHTML = `
     <strong>${currentUser.fullName}</strong><br>
     School ID: ${currentUser.schoolId}<br>
-    Program: ${currentUser.program}
+    Program: ${currentUser.program}<br>
+    Section: ${currentUser.yearLevel}-${currentUser.section}
   `;
   
   profileModal.style.display = 'flex';
 }
 
-// Slideshow function
+// Slideshow function with logo and MCC text
 function initSlideshow() {
   const slides = [
     'https://ik.imagekit.io/0sf7uub8b/HydroFit/slides_1.jpg',
@@ -314,9 +338,21 @@ function renderDashboard() {
   if (!contentDiv) return;
   
   const firstName = currentUser?.fullName?.split(',')[0] || 'User';
+  const sectionCode = currentUser?.yearLevel && currentUser?.section ? `${currentUser.yearLevel}-${currentUser.section}` : 'N/A';
   
   contentDiv.innerHTML = `
-    <div class="slideshow-container" id="slideshowContainer"></div>
+    <div class="slideshow-wrapper">
+      <div class="slideshow-container" id="slideshowContainer"></div>
+      <div class="slideshow-overlay">
+        <div class="school-badge">
+          <img src="https://ik.imagekit.io/0sf7uub8b/HydroFit/images%20(4).jpg" alt="Minsu Logo" class="minsu-logo" onerror="this.style.display='none'">
+          <div class="school-text">
+            <strong>MCC-Calapan Campus</strong>
+            <span>Pathfit Department</span>
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="card">
       <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
         <div style="background: var(--primary); border-radius: 60px; width: 70px; height: 70px; display: flex; align-items: center; justify-content: center;">
@@ -326,7 +362,7 @@ function renderDashboard() {
           <h2>Welcome, ${firstName}!</h2>
           <p><strong>Program:</strong> ${currentUser?.program || 'N/A'}</p>
           <p><strong>School ID:</strong> ${currentUser?.schoolId || 'N/A'}</p>
-          <p><strong>Year & Section:</strong> ${currentUser?.yearLevel || 'N/A'} - ${currentUser?.section || 'N/A'}</p>
+          <p><strong>Section:</strong> ${sectionCode}</p>
         </div>
         <button class="btn" id="dashboardQRBtn"><i class="fas fa-qrcode"></i> Show QR Code</button>
       </div>
@@ -339,6 +375,7 @@ function renderDashboard() {
 
 function renderProfile() {
   if (!contentDiv) return;
+  const sectionCode = currentUser?.yearLevel && currentUser?.section ? `${currentUser.yearLevel}-${currentUser.section}` : 'N/A';
   
   contentDiv.innerHTML = `
     <div class="profile-card">
@@ -362,7 +399,7 @@ function renderProfile() {
         </div>
         <div class="info-item">
           <label>Section</label>
-          <p>${currentUser?.section || 'N/A'}</p>
+          <p>${sectionCode}</p>
         </div>
         <div class="info-item">
           <label>Subject</label>
@@ -383,53 +420,77 @@ function renderProfile() {
 }
 
 function renderRanking() {
-  // Mock data for rankings
-  const campusData = [
-    { name: "Custodio, Jessrell M.", program: "BSIT", grade: 98.5 },
-    { name: "Forger, Yor M.", program: "BSIT", grade: 98.5 },
-    { name: "Rayos, Zyntx M.", program: "BSHM", grade: 97.0 },
-    { name: "Santos, Maria R.", program: "BSED", grade: 96.5 },
-    { name: "Reyes, John L.", program: "BSCRIM", grade: 95.0 }
-  ];
+  // Get all users from localStorage
+  const users = JSON.parse(localStorage.getItem('hydrofit_accounts') || '[]');
   
-  const programData = [
-    { name: "Custodio, Jessrell M.", grade: 98.5 },
-    { name: "Forger, Yor M.", grade: 98.5 },
-    { name: "Santos, Juan D.", grade: 94.0 }
-  ];
+  // Calculate mock grades (you can replace with actual assessment data)
+  const usersWithGrades = users.map(user => {
+    const userAssessment = JSON.parse(localStorage.getItem(`hydrofit_${user.schoolId}`) || '{}');
+    const assessmentCount = userAssessment.assessments?.length || 0;
+    // Mock grade based on attendance and assessments (0-100)
+    let grade = 75 + (assessmentCount * 2) + (Math.random() * 10);
+    grade = Math.min(98, Math.max(70, grade));
+    return {
+      ...user,
+      grade: Math.round(grade * 10) / 10
+    };
+  });
   
-  const classData = [
-    { name: "Custodio, Jessrell M.", grade: 98.5 },
-    { name: "Forger, Yor M.", grade: 98.5 },
-    { name: "Ramos, Ana C.", grade: 92.0 }
-  ];
+  // Sort by grade descending
+  usersWithGrades.sort((a, b) => b.grade - a.grade);
   
-  function renderRankTable(data, title, isTieSupport = true) {
-    let html = `<div class="ranking-section"><h3>${title}</h3><table class="ranking-table"><thead><tr><th>Rank</th><th>Name</th><th>Grade</th></tr></thead><tbody>`;
+  // Campus Ranking (Top 15)
+  const campusRanking = usersWithGrades.slice(0, 15);
+  
+  // Program Ranking (filter by current user's program, Top 10)
+  const programRanking = usersWithGrades
+    .filter(u => u.program === currentUser?.program)
+    .slice(0, 10);
+  
+  // Class Ranking (filter by section, Top 10)
+  const currentSection = currentUser?.yearLevel && currentUser?.section ? `${currentUser.yearLevel}-${currentUser.section}` : null;
+  const classRanking = usersWithGrades
+    .filter(u => {
+      const uSection = u.yearLevel && u.section ? `${u.yearLevel}-${u.section}` : null;
+      return uSection === currentSection;
+    })
+    .slice(0, 10);
+  
+  function renderRankTable(data, title) {
+    if (data.length === 0) {
+      return `<div class="ranking-section"><h3>${title}</h3><p>No data available.</p></div>`;
+    }
+    
+    let html = `<div class="ranking-section"><h3>${title}</h3><table class="ranking-table"><thead><tr><th>Rank</th><th>Name</th><th>Program</th><th>Grade</th></tr></thead><tbody>`;
     
     let currentRank = 1;
     let prevGrade = null;
-    let skipCount = 0;
+    let sameRankCount = 0;
     
     for (let i = 0; i < data.length; i++) {
       if (prevGrade !== null && data[i].grade < prevGrade) {
-        currentRank += skipCount + 1;
-        skipCount = 0;
+        currentRank += sameRankCount + 1;
+        sameRankCount = 0;
       }
       
       const isTie = prevGrade !== null && data[i].grade === prevGrade;
       if (isTie) {
-        skipCount++;
+        sameRankCount++;
+      } else {
+        sameRankCount = 0;
       }
       
+      const rankDisplay = isTie ? '' : currentRank;
+      const rankText = isTie ? '↳' : currentRank;
+      
       html += `<tr ${isTie ? 'class="tied-rank"' : ''}>
-        <td>${currentRank}</td>
-        <td>${data[i].name}</td>
-        <td>${data[i].grade}</td>
+        <td>${rankText}</td>
+        <td>${data[i].fullName}</td>
+        <td>${data[i].program}</td>
+        <td><strong>${data[i].grade}</strong></td>
       </tr>`;
       
       prevGrade = data[i].grade;
-      if (!isTie) skipCount = 0;
     }
     
     html += `</tbody></table></div>`;
@@ -437,9 +498,9 @@ function renderRanking() {
   }
   
   contentDiv.innerHTML = `
-    ${renderRankTable(campusData, "🏆 Campus Ranking (Top 15)", true)}
-    ${renderRankTable(programData, "📚 Program Ranking - ${currentUser?.program} (Top 10)", true)}
-    ${renderRankTable(classData, "👥 Class Ranking (Top 10)", true)}
+    ${renderRankTable(campusRanking, "🏆 Campus Ranking (Top 15)")}
+    ${renderRankTable(programRanking, `📚 ${currentUser?.program} Program Ranking (Top 10)`)}
+    ${renderRankTable(classRanking, `👥 Class ${currentSection} Ranking (Top 10)`)}
   `;
 }
 
@@ -481,7 +542,7 @@ function renderTimerSystem() {
     </div>
   `;
   
-  let timerInterval = null;
+  let timerIntervalVar = null;
   
   document.getElementById('startTimerBtn')?.addEventListener('click', () => {
     let hours = parseInt(document.getElementById('hoursInput').value) || 0;
@@ -494,7 +555,7 @@ function renderTimerSystem() {
       return;
     }
     
-    if (timerInterval) clearInterval(timerInterval);
+    if (timerIntervalVar) clearInterval(timerIntervalVar);
     
     const display = document.getElementById('timerDisp');
     
@@ -505,20 +566,20 @@ function renderTimerSystem() {
       display.innerText = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
       
       if (totalSeconds <= 0) {
-        clearInterval(timerInterval);
+        clearInterval(timerIntervalVar);
         playLoudBell();
-        showToast('Time is up! Great work!');
+        showToast('🔔 Time is up! Great work!');
         display.innerText = '00:00:00';
       }
       totalSeconds--;
     }
     
     updateDisplay();
-    timerInterval = setInterval(updateDisplay, 1000);
+    timerIntervalVar = setInterval(updateDisplay, 1000);
   });
   
   document.getElementById('stopTimerBtn')?.addEventListener('click', () => {
-    if (timerInterval) clearInterval(timerInterval);
+    if (timerIntervalVar) clearInterval(timerIntervalVar);
     showToast('Timer stopped');
   });
 }
