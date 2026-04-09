@@ -1,5 +1,5 @@
 // ========================================
-// HYDROFIT - COMPLETE APPLICATION
+// HYDROFIT - COMPLETE APPLICATION (FIXED)
 // ========================================
 
 // Global variables
@@ -296,15 +296,14 @@ function switchTab(tabName) {
     const titles = {
         dashboard: 'HYDROFIT Dashboard',
         profile: 'My Profile',
-        ranking: 'Ranking Board',
-        activity: 'Activity Log',
+        activity: 'Activities',
         movement: 'Movement Library',
         'ai-assist': 'AI Exercise Guide',
         scheduler: 'Workout Scheduler',
         timer: 'Exercise Timer',
         warmup: 'Warmup Generator',
         injury: 'Injury Prevention Guide',
-        attendance: 'Class Tracker',
+        attendance: 'Attendance',
         goals: 'Goal Planner',
         bodyparts: 'Body Focus',
         calorie: 'Calorie Tracker',
@@ -330,10 +329,8 @@ async function loadTabContent(tabName) {
         await loadDashboard();
     } else if (tabName === 'profile') {
         await loadProfile();
-    } else if (tabName === 'ranking') {
-        await loadRanking();
     } else if (tabName === 'activity') {
-        await loadActivity();
+        await loadActivitiesForStudents();
     } else if (tabName === 'attendance') {
         await loadAttendanceTracker();
     } else {
@@ -342,7 +339,7 @@ async function loadTabContent(tabName) {
 }
 
 // ========================================
-// DASHBOARD WITH SLIDESHOW
+// DASHBOARD WITH SLIDESHOW (No QR Code)
 // ========================================
 
 async function loadDashboard() {
@@ -385,9 +382,9 @@ async function loadDashboard() {
             </div>
             
             <div class="card">
-                <h3><i class="fas fa-qrcode"></i> QR Code</h3>
-                <p>Scan to record attendance</p>
-                <button class="btn btn-sm mt-4" onclick="showQRCode()">Show QR Code →</button>
+                <h3><i class="fas fa-tasks"></i> Activities</h3>
+                <p>Check your pending tasks</p>
+                <button class="btn btn-sm mt-4" onclick="switchTab('activity')">View Activities →</button>
             </div>
         </div>
     `;
@@ -458,7 +455,6 @@ async function loadProfile() {
             <h2>${escapeHtml(currentUser.fullName)}</h2>
             <p>${currentUser.program} - Year ${currentUser.yearLevel}</p>
             <p>Section: ${currentUser.section} | Subject: ${currentUser.subject}</p>
-            <button class="btn mt-4" onclick="showQRCode()"><i class="fas fa-qrcode"></i> Show QR Code</button>
         </div>
         
         <div class="profile-info-grid">
@@ -493,98 +489,48 @@ async function loadProfile() {
 }
 
 // ========================================
-// RANKING (by attendance)
+// ACTIVITIES FOR STUDENTS (from professor)
 // ========================================
 
-async function loadRanking() {
+async function loadActivitiesForStudents() {
     const container = document.getElementById('tab-content');
-    container.innerHTML = '<div class="loading-placeholder"><i class="fas fa-spinner fa-spin"></i> Loading rankings...</div>';
+    const activities = await getActivities();
     
-    const rankingData = await getRankingData();
+    if (activities.length === 0) {
+        container.innerHTML = `
+            <div class="card">
+                <h3><i class="fas fa-tasks"></i> Activities</h3>
+                <p style="padding: 40px; text-align: center;">No activities posted yet. Check back later!</p>
+            </div>
+        `;
+        return;
+    }
     
-    let overallHtml = `
-        <div class="ranking-section">
-            <h3><i class="fas fa-trophy"></i> Attendance Rankings</h3>
-            <p style="margin-bottom: 20px; color: var(--primary);">Ranked by total class attendance</p>
-            <table class="ranking-table">
-                <thead>
-                    <tr>
-                        <th>Rank</th>
-                        <th>Name</th>
-                        <th>Program</th>
-                        <th>Attendance</th>
-                    </tr>
-                </thead>
-                <tbody>
+    let activitiesHtml = `
+        <div class="card">
+            <h3><i class="fas fa-tasks"></i> Posted Activities & Assignments</h3>
+            <p style="margin-bottom: 20px; color: var(--primary);">Complete these tasks on time</p>
     `;
     
-    rankingData.forEach((student, index) => {
-        const rank = index + 1;
-        const rankDisplay = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
-        overallHtml += `
-            <tr ${student.fullName === currentUser.fullName ? 'style="background: #e3f2fd;"' : ''}>
-                <td><strong>${rankDisplay}</strong></td>
-                <td>${escapeHtml(student.fullName)}</td>
-                <td>${student.program}</td>
-                <td><strong>${student.attendanceCount}</strong> classes</td>
-            </tr>
+    activities.forEach(activity => {
+        activitiesHtml += `
+            <div style="padding: 15px; border-bottom: 1px solid var(--gray);">
+                <div class="flex-between">
+                    <strong style="font-size: 1.1rem;">${escapeHtml(activity.title)}</strong>
+                    <small style="color: var(--danger);">Due: ${activity.dueDate || 'No due date'}</small>
+                </div>
+                <p style="margin-top: 10px;">${escapeHtml(activity.description)}</p>
+                <small style="color: var(--primary);">Posted: ${new Date(activity.timestamp).toLocaleDateString()}</small>
+            </div>
         `;
     });
     
-    overallHtml += `
-                </tbody>
-            </table>
-        </div>
-    `;
-    
-    container.innerHTML = overallHtml;
+    activitiesHtml += `</div>`;
+    container.innerHTML = activitiesHtml;
 }
 
 // ========================================
-// ACTIVITY LOG
-// ========================================
-
-async function loadActivity() {
-    const container = document.getElementById('tab-content');
-    container.innerHTML = '<div class="loading-placeholder"><i class="fas fa-spinner fa-spin"></i> Loading activity...</div>';
-    
-    const activities = await getUserActivity(currentUser.schoolId);
-    
-    let activityHtml = `
-        <div class="card">
-            <h3><i class="fas fa-history"></i> Recent Activities</h3>
-            <div class="badge-list">
-                <span class="badge">📅 Total Attendance: ${currentUser.attendanceCount || 0}</span>
-            </div>
-        </div>
-        <div class="card mt-4">
-            <h3><i class="fas fa-list"></i> Activity Log</h3>
-    `;
-    
-    if (activities.length === 0) {
-        activityHtml += '<p>No activities recorded yet.</p>';
-    } else {
-        activityHtml += '<div class="activity-list">';
-        activities.forEach(activity => {
-            activityHtml += `
-                <div class="activity-item" style="padding: 12px; border-bottom: 1px solid var(--gray);">
-                    <div class="flex-between">
-                        <span><i class="fas fa-${activity.action === 'Login' ? 'sign-in-alt' : activity.action === 'Attendance' ? 'check-circle' : 'user-plus'}" style="color: var(--primary);"></i> ${activity.action}</span>
-                        <span>${new Date(activity.timestamp).toLocaleDateString()}</span>
-                    </div>
-                    <small>${activity.details || ''}</small>
-                </div>
-            `;
-        });
-        activityHtml += '</div>';
-    }
-    
-    activityHtml += '</div>';
-    container.innerHTML = activityHtml;
-}
-
-// ========================================
-// ATTENDANCE TRACKER
+// ATTENDANCE TRACKER (View only, no record button)
 // ========================================
 
 async function loadAttendanceTracker() {
@@ -592,11 +538,13 @@ async function loadAttendanceTracker() {
     
     const attendanceHtml = `
         <div class="card">
-            <h3><i class="fas fa-user-check"></i> Class Attendance</h3>
+            <h3><i class="fas fa-user-check"></i> My Attendance Record</h3>
             <div style="text-align: center; padding: 20px;">
                 <div style="font-size: 4rem; font-weight: 800;">${currentUser.attendanceCount || 0}</div>
                 <p>Total Classes Attended</p>
-                <button class="btn mt-4" id="recordAttendanceBtn"><i class="fas fa-calendar-plus"></i> Record Today's Attendance</button>
+                <p class="mt-4" style="font-size: 0.9rem; color: var(--primary);">
+                    <i class="fas fa-info-circle"></i> Attendance is recorded by scanning your QR code
+                </p>
             </div>
         </div>
         <div class="card mt-4">
@@ -610,45 +558,23 @@ async function loadAttendanceTracker() {
     `;
     
     container.innerHTML = attendanceHtml;
-    
-    const recordBtn = document.getElementById('recordAttendanceBtn');
-    if (recordBtn) {
-        recordBtn.addEventListener('click', recordTodayAttendance);
-    }
-}
-
-async function recordTodayAttendance() {
-    const btn = document.getElementById('recordAttendanceBtn');
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Recording...';
-    }
-    
-    const result = await recordAttendance(currentUser.schoolId);
-    
-    if (result.success) {
-        currentUser.attendanceCount = result.attendanceCount;
-        updateUserDisplay();
-        showToast(result.message, 'success');
-        loadAttendanceTracker();
-    } else {
-        showToast(result.message, 'error');
-    }
-    
-    if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-calendar-plus"></i> Record Today\'s Attendance';
-    }
 }
 
 // ========================================
-// TEACHER DASHBOARD
+// TEACHER DASHBOARD (No delay on tab switching)
 // ========================================
 
 async function loadTeacherDashboard() {
     const container = document.getElementById('tab-content');
     const teacher = getCurrentTeacher();
-    const students = await getAllStudents();
+    
+    // Load all data in parallel for faster display
+    const [students, activities, handouts, announcements] = await Promise.all([
+        getAllStudents(),
+        getActivities(),
+        getHandouts(),
+        getAnnouncements()
+    ]);
     
     const dashboardHtml = `
         <div class="profile-card" style="margin-bottom: 30px;">
@@ -661,7 +587,7 @@ async function loadTeacherDashboard() {
         </div>
         
         <div class="teacher-tabs" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
-            <button class="btn teacher-tab-btn active" data-teacher-tab="attendance">📋 Attendance Records</button>
+            <button class="btn teacher-tab-btn active" data-teacher-tab="attendance">📋 QR Scanner & Attendance</button>
             <button class="btn btn-secondary teacher-tab-btn" data-teacher-tab="activities">📝 Activities</button>
             <button class="btn btn-secondary teacher-tab-btn" data-teacher-tab="handouts">📚 Handouts</button>
             <button class="btn btn-secondary teacher-tab-btn" data-teacher-tab="announcements">📢 Announcements</button>
@@ -669,34 +595,21 @@ async function loadTeacherDashboard() {
         
         <div id="teacherAttendanceTab" class="teacher-tab-content active">
             <div class="card">
-                <h3><i class="fas fa-qrcode"></i> QR Code Scanner</h3>
+                <h3><i class="fas fa-qrcode"></i> QR Code Scanner for Attendance</h3>
                 <div style="text-align: center; padding: 20px;">
                     <div id="qr-reader" style="width: 100%; max-width: 300px; margin: 0 auto;"></div>
                     <div id="qr-result" style="margin-top: 20px;"></div>
                     <button class="btn mt-4" id="startScannerBtn">Start Scanner</button>
                     <button class="btn btn-secondary mt-4" id="stopScannerBtn" style="display: none;">Stop Scanner</button>
+                    <p class="mt-4" style="font-size: 0.8rem; color: var(--primary);">
+                        <i class="fas fa-info-circle"></i> Students must show their QR code to record attendance
+                    </p>
                 </div>
             </div>
             
             <div class="card mt-4">
                 <h3><i class="fas fa-users"></i> Student Attendance Records</h3>
-                <div style="overflow-x: auto;">
-                    <table class="ranking-table">
-                        <thead>
-                            <tr><th>Student Name</th><th>School ID</th><th>Program</th><th>Attendance Count</th></tr>
-                        </thead>
-                        <tbody>
-                            ${students.map(s => `
-                                <tr>
-                                    <td>${escapeHtml(s.fullName)}</td>
-                                    <td>${s.schoolId}</td>
-                                    <td>${s.program}</td>
-                                    <td><strong>${s.attendanceCount}</strong> classes</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
+                ${renderStudentAttendanceTable(students)}
             </div>
         </div>
         
@@ -720,7 +633,7 @@ async function loadTeacherDashboard() {
             
             <div class="card mt-4">
                 <h3><i class="fas fa-list"></i> Published Activities</h3>
-                <div id="activitiesList">Loading...</div>
+                <div id="activitiesList">${renderActivitiesList(activities)}</div>
             </div>
         </div>
         
@@ -744,7 +657,7 @@ async function loadTeacherDashboard() {
             
             <div class="card mt-4">
                 <h3><i class="fas fa-download"></i> Available Handouts</h3>
-                <div id="handoutsList">Loading...</div>
+                <div id="handoutsList">${renderHandoutsList(handouts)}</div>
             </div>
         </div>
         
@@ -764,21 +677,97 @@ async function loadTeacherDashboard() {
             
             <div class="card mt-4">
                 <h3><i class="fas fa-history"></i> Previous Announcements</h3>
-                <div id="announcementsList">Loading...</div>
+                <div id="announcementsList">${renderAnnouncementsList(announcements)}</div>
             </div>
         </div>
     `;
     
     container.innerHTML = dashboardHtml;
     
-    // Load data
-    await loadActivitiesList();
-    await loadHandoutsList();
-    await loadAnnouncementsList();
+    // Setup QR Scanner
+    setupQRScanner();
     
-    // Setup teacher tab switching
+    // Setup buttons with direct event listeners (no delay)
+    const publishBtn = document.getElementById('publishActivityBtn');
+    if (publishBtn) {
+        publishBtn.onclick = async () => {
+            const title = document.getElementById('activityTitle').value.trim();
+            const description = document.getElementById('activityDesc').value.trim();
+            const dueDate = document.getElementById('activityDueDate').value;
+            
+            if (!title) {
+                showToast('Please enter activity title', 'error');
+                return;
+            }
+            
+            const result = await publishActivity({ title, description, dueDate });
+            if (result.success) {
+                showToast('Activity published successfully!', 'success');
+                document.getElementById('activityTitle').value = '';
+                document.getElementById('activityDesc').value = '';
+                document.getElementById('activityDueDate').value = '';
+                // Refresh activities list
+                const newActivities = await getActivities();
+                document.getElementById('activitiesList').innerHTML = renderActivitiesList(newActivities);
+            } else {
+                showToast(result.message || 'Failed to publish activity', 'error');
+            }
+        };
+    }
+    
+    const uploadBtn = document.getElementById('uploadHandoutBtn');
+    if (uploadBtn) {
+        uploadBtn.onclick = async () => {
+            const title = document.getElementById('handoutTitle').value.trim();
+            const description = document.getElementById('handoutDesc').value.trim();
+            const fileUrl = document.getElementById('handoutUrl').value.trim();
+            
+            if (!title || !fileUrl) {
+                showToast('Please enter title and file URL', 'error');
+                return;
+            }
+            
+            const result = await uploadHandout({ title, description, fileUrl });
+            if (result.success) {
+                showToast('Handout uploaded successfully!', 'success');
+                document.getElementById('handoutTitle').value = '';
+                document.getElementById('handoutDesc').value = '';
+                document.getElementById('handoutUrl').value = '';
+                const newHandouts = await getHandouts();
+                document.getElementById('handoutsList').innerHTML = renderHandoutsList(newHandouts);
+            } else {
+                showToast(result.message || 'Failed to upload handout', 'error');
+            }
+        };
+    }
+    
+    const announceBtn = document.getElementById('publishAnnouncementBtn');
+    if (announceBtn) {
+        announceBtn.onclick = async () => {
+            const title = document.getElementById('announcementTitle').value.trim();
+            const content = document.getElementById('announcementContent').value.trim();
+            
+            if (!title || !content) {
+                showToast('Please enter title and content', 'error');
+                return;
+            }
+            
+            const result = await publishAnnouncement({ title, content });
+            if (result.success) {
+                showToast('Announcement published successfully!', 'success');
+                document.getElementById('announcementTitle').value = '';
+                document.getElementById('announcementContent').value = '';
+                const newAnnouncements = await getAnnouncements();
+                document.getElementById('announcementsList').innerHTML = renderAnnouncementsList(newAnnouncements);
+            } else {
+                showToast(result.message || 'Failed to publish announcement', 'error');
+            }
+        };
+    }
+    
+    // Setup teacher tab switching (instant, no delay)
     document.querySelectorAll('.teacher-tab-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
+        btn.onclick = function() {
             const tab = this.getAttribute('data-teacher-tab');
             document.querySelectorAll('.teacher-tab-btn').forEach(b => b.classList.remove('active'));
             this.classList.add('active');
@@ -788,17 +777,114 @@ async function loadTeacherDashboard() {
             });
             
             document.getElementById(`teacher${tab.charAt(0).toUpperCase() + tab.slice(1)}Tab`).style.display = 'block';
-        });
+        };
+    });
+}
+
+function renderStudentAttendanceTable(students) {
+    // Extract surname from full name (last name)
+    const studentsWithSurname = students.map(student => {
+        let surname = student.fullName;
+        // Check if name has comma (Last, First format)
+        if (student.fullName.includes(',')) {
+            surname = student.fullName.split(',')[0].trim();
+        } else {
+            // Try to get last word as surname
+            const nameParts = student.fullName.trim().split(' ');
+            surname = nameParts[nameParts.length - 1];
+        }
+        return { ...student, surname: surname.toLowerCase(), originalSurname: surname };
     });
     
-    // Setup QR Scanner
-    setupQRScanner();
+    // Sort alphabetically by surname
+    studentsWithSurname.sort((a, b) => a.surname.localeCompare(b.surname));
     
-    // Setup buttons
-    document.getElementById('publishActivityBtn').addEventListener('click', publishActivity);
-    document.getElementById('uploadHandoutBtn').addEventListener('click', uploadHandout);
-    document.getElementById('publishAnnouncementBtn').addEventListener('click', publishAnnouncement);
+    // Group by program
+    const programs = {};
+    studentsWithSurname.forEach(student => {
+        if (!programs[student.program]) {
+            programs[student.program] = {};
+        }
+        if (!programs[student.program][student.yearLevel]) {
+            programs[student.program][student.yearLevel] = {};
+        }
+        if (!programs[student.program][student.yearLevel][student.section]) {
+            programs[student.program][student.yearLevel][student.section] = [];
+        }
+        programs[student.program][student.yearLevel][student.section].push(student);
+    });
+    
+    let html = '';
+    for (const [program, years] of Object.entries(programs)) {
+        html += `<h4 style="margin-top: 20px; color: var(--primary);">${program}</h4>`;
+        for (const [year, sections] of Object.entries(years)) {
+            html += `<h5 style="margin-top: 15px; margin-left: 10px;">Year ${year}</h5>`;
+            for (const [section, studentsList] of Object.entries(sections)) {
+                html += `<h6 style="margin-top: 10px; margin-left: 20px; color: var(--dark);">Section: ${section}</h6>`;
+                html += `<div style="overflow-x: auto; margin-left: 30px; margin-bottom: 20px;">
+                    <table class="ranking-table">
+                        <thead>
+                            <tr><th>Student Name</th><th>School ID</th><th>Attendance Count</th></tr>
+                        </thead>
+                        <tbody>`;
+                studentsList.forEach(s => {
+                    html += `<tr>
+                        <td>${escapeHtml(s.originalSurname)}, ${escapeHtml(s.fullName.split(',')[1] || '')}</td>
+                        <td>${s.schoolId}</td>
+                        <td><strong>${s.attendanceCount}</strong> classes</td>
+                    </tr>`;
+                });
+                html += `</tbody>
+                    </table>
+                </div>`;
+            }
+        }
+    }
+    
+    return html || '<p>No students found.</p>';
 }
+
+function renderActivitiesList(activities) {
+    if (activities.length === 0) return '<p>No activities published yet.</p>';
+    
+    return activities.map(act => `
+        <div style="padding: 15px; border-bottom: 1px solid var(--gray);">
+            <strong>${escapeHtml(act.title)}</strong>
+            <small style="color: var(--primary); display: block;">Due: ${act.dueDate || 'No due date'}</small>
+            <p style="margin-top: 8px;">${escapeHtml(act.description)}</p>
+            <small>Posted: ${new Date(act.timestamp).toLocaleDateString()}</small>
+        </div>
+    `).join('');
+}
+
+function renderHandoutsList(handouts) {
+    if (handouts.length === 0) return '<p>No handouts uploaded yet.</p>';
+    
+    return handouts.map(h => `
+        <div style="padding: 15px; border-bottom: 1px solid var(--gray);">
+            <strong>${escapeHtml(h.title)}</strong>
+            <p>${escapeHtml(h.description)}</p>
+            <a href="${h.fileUrl}" target="_blank" class="btn btn-sm">Download Handout →</a>
+            <small style="display: block; margin-top: 5px;">Uploaded: ${new Date(h.timestamp).toLocaleDateString()}</small>
+        </div>
+    `).join('');
+}
+
+function renderAnnouncementsList(announcements) {
+    if (announcements.length === 0) return '<p>No announcements yet.</p>';
+    
+    return announcements.map(a => `
+        <div style="padding: 15px; border-bottom: 1px solid var(--gray);">
+            <strong>${escapeHtml(a.title)}</strong>
+            <small style="color: var(--primary); display: block;">Posted: ${new Date(a.timestamp).toLocaleDateString()}</small>
+            <p style="margin-top: 8px;">${escapeHtml(a.content)}</p>
+        </div>
+    `).join('');
+}
+
+// ========================================
+// QR SCANNER FOR ATTENDANCE
+// ========================================
 
 function setupQRScanner() {
     let html5QrCode = null;
@@ -806,7 +892,9 @@ function setupQRScanner() {
     const stopBtn = document.getElementById('stopScannerBtn');
     const resultDiv = document.getElementById('qr-result');
     
-    startBtn.addEventListener('click', async () => {
+    if (!startBtn) return;
+    
+    startBtn.onclick = async () => {
         if (html5QrCode) {
             await html5QrCode.stop();
         }
@@ -823,10 +911,55 @@ function setupQRScanner() {
                         fps: 10,
                         qrbox: { width: 250, height: 250 }
                     },
-                    (decodedText) => {
-                        // Handle QR scan result
-                        resultDiv.innerHTML = `<div style="color: green;">✅ QR Scanned: ${decodedText}</div>`;
-                        showToast('QR Code scanned successfully!', 'success');
+                    async (decodedText) => {
+                        // Process QR code for attendance
+                        try {
+                            const qrData = JSON.parse(decodedText);
+                            if (qrData.schoolId && qrData.name) {
+                                // Record attendance
+                                const result = await recordAttendance(qrData.schoolId);
+                                if (result.success) {
+                                    resultDiv.innerHTML = `<div style="color: green; padding: 10px; background: #d4edda; border-radius: 8px;">
+                                        ✅ Attendance recorded for ${escapeHtml(qrData.name)}!<br>
+                                        Total: ${result.attendanceCount} classes
+                                    </div>`;
+                                    showToast(`Attendance recorded for ${qrData.name}!`, 'success');
+                                    
+                                    // Refresh attendance table
+                                    const students = await getAllStudents();
+                                    const attendanceTable = document.querySelector('#teacherAttendanceTab .card.mt-4');
+                                    if (attendanceTable) {
+                                        attendanceTable.innerHTML = `
+                                            <h3><i class="fas fa-users"></i> Student Attendance Records</h3>
+                                            ${renderStudentAttendanceTable(students)}
+                                        `;
+                                    }
+                                } else {
+                                    resultDiv.innerHTML = `<div style="color: red; padding: 10px; background: #f8d7da; border-radius: 8px;">
+                                        ❌ ${result.message}
+                                    </div>`;
+                                    showToast(result.message, 'error');
+                                }
+                            } else {
+                                resultDiv.innerHTML = `<div style="color: red; padding: 10px; background: #f8d7da; border-radius: 8px;">
+                                    ❌ Invalid QR code format
+                                </div>`;
+                            }
+                        } catch (e) {
+                            resultDiv.innerHTML = `<div style="color: red; padding: 10px; background: #f8d7da; border-radius: 8px;">
+                                ❌ Invalid QR code
+                            </div>`;
+                        }
+                        
+                        // Auto stop after successful scan
+                        setTimeout(async () => {
+                            if (html5QrCode) {
+                                await html5QrCode.stop();
+                                html5QrCode = null;
+                                startBtn.style.display = 'inline-block';
+                                stopBtn.style.display = 'none';
+                            }
+                        }, 3000);
                     },
                     (error) => {
                         console.log("Scan error:", error);
@@ -834,13 +967,15 @@ function setupQRScanner() {
                 );
                 startBtn.style.display = 'none';
                 stopBtn.style.display = 'inline-block';
+            } else {
+                resultDiv.innerHTML = `<div style="color: red;">❌ No cameras found</div>`;
             }
         } catch (err) {
             resultDiv.innerHTML = `<div style="color: red;">❌ Camera error: ${err}</div>`;
         }
-    });
+    };
     
-    stopBtn.addEventListener('click', async () => {
+    stopBtn.onclick = async () => {
         if (html5QrCode) {
             await html5QrCode.stop();
             html5QrCode = null;
@@ -848,125 +983,7 @@ function setupQRScanner() {
             stopBtn.style.display = 'none';
             resultDiv.innerHTML = '';
         }
-    });
-}
-
-async function loadActivitiesList() {
-    const container = document.getElementById('activitiesList');
-    const activities = await getActivities();
-    
-    if (activities.length === 0) {
-        container.innerHTML = '<p>No activities published yet.</p>';
-        return;
-    }
-    
-    container.innerHTML = activities.map(act => `
-        <div style="padding: 15px; border-bottom: 1px solid var(--gray);">
-            <strong>${escapeHtml(act.title)}</strong>
-            <small style="color: var(--primary);">Due: ${act.dueDate || 'No due date'}</small>
-            <p style="margin-top: 8px;">${escapeHtml(act.description)}</p>
-        </div>
-    `).join('');
-}
-
-async function loadHandoutsList() {
-    const container = document.getElementById('handoutsList');
-    const handouts = await getHandouts();
-    
-    if (handouts.length === 0) {
-        container.innerHTML = '<p>No handouts uploaded yet.</p>';
-        return;
-    }
-    
-    container.innerHTML = handouts.map(h => `
-        <div style="padding: 15px; border-bottom: 1px solid var(--gray);">
-            <strong>${escapeHtml(h.title)}</strong>
-            <p>${escapeHtml(h.description)}</p>
-            <a href="${h.fileUrl}" target="_blank" class="btn btn-sm">Download Handout →</a>
-        </div>
-    `).join('');
-}
-
-async function loadAnnouncementsList() {
-    const container = document.getElementById('announcementsList');
-    const announcements = await getAnnouncements();
-    
-    if (announcements.length === 0) {
-        container.innerHTML = '<p>No announcements yet.</p>';
-        return;
-    }
-    
-    container.innerHTML = announcements.map(a => `
-        <div style="padding: 15px; border-bottom: 1px solid var(--gray);">
-            <strong>${escapeHtml(a.title)}</strong>
-            <small>${new Date(a.timestamp).toLocaleDateString()}</small>
-            <p style="margin-top: 8px;">${escapeHtml(a.content)}</p>
-        </div>
-    `).join('');
-}
-
-async function publishActivity() {
-    const title = document.getElementById('activityTitle').value.trim();
-    const description = document.getElementById('activityDesc').value.trim();
-    const dueDate = document.getElementById('activityDueDate').value;
-    
-    if (!title) {
-        showToast('Please enter activity title', 'error');
-        return;
-    }
-    
-    const result = await publishActivity({ title, description, dueDate });
-    if (result.success) {
-        showToast('Activity published successfully!', 'success');
-        document.getElementById('activityTitle').value = '';
-        document.getElementById('activityDesc').value = '';
-        document.getElementById('activityDueDate').value = '';
-        await loadActivitiesList();
-    } else {
-        showToast(result.message || 'Failed to publish activity', 'error');
-    }
-}
-
-async function uploadHandout() {
-    const title = document.getElementById('handoutTitle').value.trim();
-    const description = document.getElementById('handoutDesc').value.trim();
-    const fileUrl = document.getElementById('handoutUrl').value.trim();
-    
-    if (!title || !fileUrl) {
-        showToast('Please enter title and file URL', 'error');
-        return;
-    }
-    
-    const result = await uploadHandout({ title, description, fileUrl });
-    if (result.success) {
-        showToast('Handout uploaded successfully!', 'success');
-        document.getElementById('handoutTitle').value = '';
-        document.getElementById('handoutDesc').value = '';
-        document.getElementById('handoutUrl').value = '';
-        await loadHandoutsList();
-    } else {
-        showToast(result.message || 'Failed to upload handout', 'error');
-    }
-}
-
-async function publishAnnouncement() {
-    const title = document.getElementById('announcementTitle').value.trim();
-    const content = document.getElementById('announcementContent').value.trim();
-    
-    if (!title || !content) {
-        showToast('Please enter title and content', 'error');
-        return;
-    }
-    
-    const result = await publishAnnouncement({ title, content });
-    if (result.success) {
-        showToast('Announcement published successfully!', 'success');
-        document.getElementById('announcementTitle').value = '';
-        document.getElementById('announcementContent').value = '';
-        await loadAnnouncementsList();
-    } else {
-        showToast(result.message || 'Failed to publish announcement', 'error');
-    }
+    };
 }
 
 // ========================================
@@ -1009,33 +1026,6 @@ async function loadGenericTab(tabName) {
 
 function updateUserDisplay() {
     localStorage.setItem("hydrofit_user", JSON.stringify(currentUser));
-}
-
-function showQRCode() {
-    const qrContainer = document.getElementById('qrCodeContainer');
-    const userInfo = document.getElementById('qrUserInfo');
-    
-    qrContainer.innerHTML = '';
-    
-    const qrData = JSON.stringify({
-        schoolId: currentUser.schoolId,
-        name: currentUser.fullName,
-        program: currentUser.program
-    });
-    
-    if (typeof QRCode !== 'undefined') {
-        new QRCode(qrContainer, {
-            text: qrData,
-            width: 200,
-            height: 200
-        });
-    } else {
-        qrContainer.innerHTML = '<p>QR Code library loading...</p>';
-    }
-    
-    userInfo.innerHTML = `<strong>${escapeHtml(currentUser.fullName)}</strong><br>School ID: ${currentUser.schoolId}<br>${currentUser.program} - Year ${currentUser.yearLevel}`;
-    
-    document.getElementById('profileModal').style.display = 'flex';
 }
 
 function showToast(message, type = 'info') {
@@ -1086,6 +1076,4 @@ function escapeHtml(str) {
 
 // Make functions global for HTML onclick handlers
 window.switchTab = switchTab;
-window.showQRCode = showQRCode;
-window.recordTodayAttendance = recordTodayAttendance;
 window.showToast = showToast;
